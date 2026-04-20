@@ -1,0 +1,27 @@
+[local]
+localhost ansible_connection=local ansible_become=false
+
+[linux]
+vm-7431-linux-vm-1.canadacentral.cloudapp.azure.com
+vm-7431-linux-vm-2.canadacentral.cloudapp.azure.com
+vm-7431-linux-vm-3.canadacentral.cloudapp.azure.com
+
+[windows]
+vm-7431-win-vm-1.canadacentral.cloudapp.azure.com
+
+[os:children]
+linux
+windows
+
+[windows:vars]
+ansible_user                         = n01017431
+ansible_password                     = "{{ lookup('env', 'WIN_PASSWORD') }}"
+ansible_connection                   = winrm
+ansible_port                         = 5985
+ansible_winrm_transport              = ntlm
+ansible_winrm_server_cert_validation = ignore
+ansible_become                       = false
+
+[linux:vars]
+ansible_user               = n01017431
+ansible_python_interpreter = auto

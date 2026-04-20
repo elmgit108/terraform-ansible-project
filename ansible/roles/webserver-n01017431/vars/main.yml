@@ -1,0 +1,7 @@
+---
+# vars for webserver-n01017431 role
+
+apache_package: httpd
+apache_service: httpd
+web_root: /var/www/html
+file_mode: "0444"

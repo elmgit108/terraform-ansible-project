@@ -1,0 +1,104 @@
+---
+- name: Install parted and filesystem tools
+  ansible.builtin.package:
+    name:
+      - parted
+      - xfsprogs
+      - e2fsprogs
+    state: present
+
+- name: Check existing partition table on data disk
+  ansible.builtin.command:
+    cmd: "parted -s {{ disk_device }} print"
+  register: parted_check
+  changed_when: false
+  failed_when: false
+
+- name: Create GPT partition table on data disk
+  ansible.builtin.command:
+    cmd: "parted -s {{ disk_device }} mklabel gpt"
+  when: "'Partition Table: gpt' not in parted_check.stdout"
+
+- name: Create partition 1 (4 GB for XFS on {{ part1.mount }})
+  ansible.builtin.command:
+    cmd: "parted -s {{ disk_device }} mkpart primary xfs {{ part1.start }} {{ part1.end }}"
+  args:
+    creates: "{{ disk_device }}{{ part1.number }}"
+
+- name: Create partition 2 (5 GB for EXT4 on {{ part2.mount }})
+  ansible.builtin.command:
+    cmd: "parted -s {{ disk_device }} mkpart primary ext4 {{ part2.start }} {{ part2.end }}"
+  args:
+    creates: "{{ disk_device }}{{ part2.number }}"
+
+- name: Wait for partitions to appear
+  ansible.builtin.command:
+    cmd: "partprobe {{ disk_device }}"
+  changed_when: false
+
+- name: Check filesystem type on partition 1
+  ansible.builtin.command:
+    cmd: "blkid -o value -s TYPE {{ disk_device }}{{ part1.number }}"
+  register: part1_fs
+  changed_when: false
+  failed_when: false
+
+- name: Format partition 1 as XFS
+  ansible.builtin.command:
+    cmd: "mkfs.xfs -f {{ disk_device }}{{ part1.number }}"
+  when: part1_fs.stdout != part1.fstype
+
+- name: Check filesystem type on partition 2
+  ansible.builtin.command:
+    cmd: "blkid -o value -s TYPE {{ disk_device }}{{ part2.number }}"
+  register: part2_fs
+  changed_when: false
+  failed_when: false
+
+- name: Format partition 2 as EXT4
+  ansible.builtin.command:
+    cmd: "mkfs.ext4 -F {{ disk_device }}{{ part2.number }}"
+  when: part2_fs.stdout != part2.fstype
+
+- name: Create mount point {{ part1.mount }}
+  ansible.builtin.file:
+    path: "{{ part1.mount }}"
+    state: directory
+    mode: "0755"
+
+- name: Create mount point {{ part2.mount }}
+  ansible.builtin.file:
+    path: "{{ part2.mount }}"
+    state: directory
+    mode: "0755"
+
+- name: Get UUID of partition 1
+  ansible.builtin.command:
+    cmd: "blkid -o value -s UUID {{ disk_device }}{{ part1.number }}"
+  register: part1_uuid
+  changed_when: false
+
+- name: Get UUID of partition 2
+  ansible.builtin.command:
+    cmd: "blkid -o value -s UUID {{ disk_device }}{{ part2.number }}"
+  register: part2_uuid
+  changed_when: false
+
+- name: Persistently mount {{ part1.mount }} (XFS) via /etc/fstab
+  ansible.builtin.lineinfile:
+    path: /etc/fstab
+    regexp: "^UUID={{ part1_uuid.stdout }}"
+    line: "UUID={{ part1_uuid.stdout }} {{ part1.mount }} {{ part1.fstype }} defaults 0 0"
+    state: present
+
+- name: Persistently mount {{ part2.mount }} (EXT4) via /etc/fstab
+  ansible.builtin.lineinfile:
+    path: /etc/fstab
+    regexp: "^UUID={{ part2_uuid.stdout }}"
+    line: "UUID={{ part2_uuid.stdout }} {{ part2.mount }} {{ part2.fstype }} defaults 0 0"
+    state: present
+
+- name: Mount all from /etc/fstab
+  ansible.builtin.command:
+    cmd: mount -a
+  changed_when: false

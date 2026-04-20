@@ -1,0 +1,35 @@
+---
+# webserver-n01017431 role: install Apache, deploy VM-specific index.html, start service
+
+- name: Install Apache web server
+  ansible.builtin.package:
+    name: "{{ apache_package }}"
+    state: present
+
+# Step 1: Create vm1.html, vm2.html, vm3.html on the AUTOMATION SERVER
+# Each file contains the FQDN of the respective managed node
+# Must NOT use run_once — each iteration creates a different file
+- name: "Create vm{{ groups['linux'].index(inventory_hostname) + 1 }}.html on automation server"
+  ansible.builtin.copy:
+    content: "{{ inventory_hostname }}"
+    dest: "~/vm{{ groups['linux'].index(inventory_hostname) + 1 }}.html"
+  delegate_to: localhost
+  become: false
+
+# Step 2: Copy THIS VM's html file as index.html into /var/www/html
+# The file was created in Step 1 on the automation server (src is local path)
+- name: "Copy vm{{ groups['linux'].index(inventory_hostname) + 1 }}.html as index.html to {{ web_root }}"
+  ansible.builtin.copy:
+    src: "~/vm{{ groups['linux'].index(inventory_hostname) + 1 }}.html"
+    dest: "{{ web_root }}/index.html"
+    mode: "{{ file_mode }}"
+    owner: root
+    group: root
+  notify: Restart Apache
+
+# Step 3: Ensure Apache is running and enabled at boot
+- name: Ensure Apache is started and enabled on boot
+  ansible.builtin.service:
+    name: "{{ apache_service }}"
+    state: started
+    enabled: true

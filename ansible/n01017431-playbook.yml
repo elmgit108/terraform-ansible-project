@@ -1,0 +1,23 @@
+---
+- name: n01017431 Project Playbook - Configure all Linux managed nodes
+  hosts: linux
+  become: true
+
+  pre_tasks:
+    - name: Fix CentOS 8 EOL repositories - disable mirrorlist
+      ansible.builtin.shell:
+        cmd: sed -i 's/^mirrorlist=/#mirrorlist=/g' /etc/yum.repos.d/CentOS-*.repo
+      when: ansible_distribution == 'CentOS' and ansible_distribution_major_version == '8'
+      changed_when: true
+
+    - name: Fix CentOS 8 EOL repositories - point to vault
+      ansible.builtin.shell:
+        cmd: sed -i 's|baseurl=http://mirror.centos.org|baseurl=http://vault.centos.org|g' /etc/yum.repos.d/CentOS-*.repo
+      when: ansible_distribution == 'CentOS' and ansible_distribution_major_version == '8'
+      changed_when: true
+
+  roles:
+    - profile-n01017431
+    - user-n01017431
+    - datadisk-n01017431
+    - webserver-n01017431

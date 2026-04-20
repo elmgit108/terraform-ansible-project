@@ -1,0 +1,10 @@
+---
+# vars for user-n01017431 role
+
+users:
+  - user100
+  - user200
+  - user300
+
+group_name: cloudadmins
+additional_group: wheel

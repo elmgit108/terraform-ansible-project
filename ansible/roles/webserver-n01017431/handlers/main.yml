@@ -1,0 +1,7 @@
+---
+# handlers for webserver-n01017431 role
+
+- name: Restart Apache
+  ansible.builtin.service:
+    name: "{{ apache_service }}"
+    state: restarted

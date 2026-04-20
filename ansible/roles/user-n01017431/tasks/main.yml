@@ -1,0 +1,34 @@
+---
+# user-n01017431 role: creates group, users, SSH keys, and group memberships
+
+- name: Create cloudadmins group
+  ansible.builtin.group:
+    name: "{{ group_name }}"
+    state: present
+
+- name: Create user accounts with SSH keys (no passphrase)
+  ansible.builtin.user:
+    name: "{{ item }}"
+    state: present
+    groups: "{{ group_name }},{{ additional_group }}"
+    append: true
+    generate_ssh_key: true
+    ssh_key_bits: 2048
+    ssh_key_file: ".ssh/id_rsa"
+    ssh_key_passphrase: ""
+    create_home: true
+  loop: "{{ users }}"
+
+- name: Authorize each user's generated public key for SSH login
+  ansible.builtin.shell:
+    cmd: cp /home/{{ item }}/.ssh/id_rsa.pub /home/{{ item }}/.ssh/authorized_keys && chown {{ item }}:{{ item }} /home/{{ item }}/.ssh/authorized_keys && chmod 600 /home/{{ item }}/.ssh/authorized_keys
+  loop: "{{ users }}"
+  changed_when: true
+
+# Download user100 private key from VM1 to the automation server home directory
+- name: Fetch user100 private key from VM1 to automation server
+  ansible.builtin.fetch:
+    src: /home/user100/.ssh/id_rsa
+    dest: "{{ lookup('env', 'HOME') }}/user100_id_rsa"
+    flat: true
+  when: inventory_hostname == groups['linux'][0]

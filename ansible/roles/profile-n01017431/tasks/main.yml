@@ -1,0 +1,16 @@
+---
+# Append two lines to /etc/profile system-wide
+
+- name: Append test block comment to /etc/profile
+  ansible.builtin.lineinfile:
+    path: /etc/profile
+    line: "#Test block added by Ansible………. n01017431"
+    state: present
+    create: false
+
+- name: Append TMOUT export to /etc/profile
+  ansible.builtin.lineinfile:
+    path: /etc/profile
+    line: "export TMOUT=1500"
+    state: present
+    create: false
